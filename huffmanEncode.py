@@ -33,11 +33,6 @@ DCLuminanceSizeToCode = [
 ]
 
 
-
-
-
-
-
 #The DC Hoffman coding table for chrominance recommended by JPEG
 DCChrominanceSizeToCode = [
     [0,1],                 #0 EOB
@@ -1684,7 +1679,7 @@ ACChrominanceToCodeList = [
 ]
 
 
-#isLuminance가 0이어야 True. k = 0이어서 
+# when isLuminance == 0 is True
 def encodeDCToBoolList(value,isLuminance):
     boolList = []
     size = int(value).bit_length() # int(0).bit_length()=0
@@ -1711,7 +1706,7 @@ def encodeACBlock(bitStream,ACArray,isLuminance):
     maxI = numpy.size(ACArray)
     while i != maxI:
         run = 0
-        # 뒷 부분 확인해서 0이면 EOB 입력 후 종료 
+        # Check after i index is 0 
         if not any(ACArray[i:]):
             if (isLuminance == 0):
                 bitStream.write(ACLuminanceSizeToCode['00'], bool)  # EOB
@@ -1719,7 +1714,7 @@ def encodeACBlock(bitStream,ACArray,isLuminance):
                 bitStream.write(ACChrominanceToCode['00'], bool)
             return
 
-        # 동일 연속 숫자  
+        # Check same number 
         while 1:
             if(ACArray[i]!=0 or i==maxI - 1 or run==15):
                 break
@@ -1729,24 +1724,17 @@ def encodeACBlock(bitStream,ACArray,isLuminance):
         value = ACArray[i]
         
         
-        # 이걸 왜 둔것인지 모르겠음
-        '''
-        if(value==0 and run!=15):
-            break # Rest of the components are zeros therefore we simply put the EOB to signify this fact
-        '''
 
         size = int(value).bit_length()
 
         runSizeStr = str.upper(str(hex(run))[2:]) + str.upper(str(hex(size))[2:])
 
-        # table Luminance에서 확인
+        # find proper table
         if (isLuminance == 0):
             bitStream.write(ACLuminanceSizeToCode[runSizeStr], bool)
         else:
             bitStream.write(ACChrominanceToCode[runSizeStr], bool)
 
-
-        # bool로 뒤집어 줘야 된다 
         if(value<=0):
             codeList = list(bin(value)[3:])
             for k, val in enumerate(codeList):
