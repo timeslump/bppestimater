@@ -10,6 +10,7 @@ from scipy.special import beta, gamma
 
 # quaility factor = 50
 def find_quan(k):
+    # Y component
     if k == 0:
         return np.array([[16,  11,  10,  16,  24,  40,  51,  61],
                          [12,  12,  14,  19,  26,  58,  60,  55],
@@ -19,6 +20,7 @@ def find_quan(k):
                          [24,  35,  55,  64,  81, 104, 113,  92],
                          [49,  64,  78,  87, 103, 121, 120, 101],
                          [72,  92,  95,  98, 112, 100, 103,  99]])
+    # Cb, Cr component
     else:
         return np.array([[17, 18, 24, 47, 99, 99, 99, 99],
                          [18, 21, 26, 66, 99, 99, 99, 99],
@@ -28,6 +30,7 @@ def find_quan(k):
                          [99, 99, 99, 99, 99, 99, 99, 99],
                          [99, 99, 99, 99, 99, 99, 99, 99],
                          [99, 99, 99, 99, 99, 99, 99, 99]])
+#zigzgag for 8x8 block
 def zigzag(input):
     x = 0
     y = 0
@@ -61,10 +64,14 @@ def zigzag(input):
 def convert(file_name, writeValid):
     global Test
     global Pil_size
-
+    
+    #Test for jpeg of PIL package
+    '''
     testfile = Image.open(file_name).convert('RGB')
     testfile.save('1.jpeg', 'jpeg', quality = 50, subsampling = 0)
     Pil_size.append(os.path.getsize('1.jpeg'))
+    '''
+    
     # open image and Change to YCbCr
     # find row and col feature
     im = Image.open(file_name)
@@ -74,7 +81,7 @@ def convert(file_name, writeValid):
 
 
     #find size of block
-    #make np for dc, ac component
+    #make array for dc, ac component
     block_size = row // 8 * col // 8
     dc = np.empty((block_size, 3), dtype=np.int32)
     ac = np.empty((block_size, 63, 3), dtype=np.int32)
@@ -82,10 +89,16 @@ def convert(file_name, writeValid):
 
     idx = 0
     out = BitStream()
+    # for 8 x 8 blocks
     for i in range(0, row, 8):
         for j in range(0, col, 8):
+            # for Y, Cb, Cr
             for k in range(3):
+                # divide Image to 8x8 blocks
                 block = im_np[i : i + 8, j : j + 8, k] - 128
+                
+                
+                # Test Area for uniform bpp 
                 '''
                 # just random range
                 for i in range(8):
@@ -94,12 +107,15 @@ def convert(file_name, writeValid):
                 #beta distribution
                 block = ((np.random.beta(1, 5, size = (8, 8)) * 255) - 128).astype(int)
                 '''
+                
+                # Dct
                 dct_block = fftpack.dct(fftpack.dct(block, norm='ortho').T, norm='ortho').T
                 # quantization
                 q_block = np.rint((dct_block / find_quan(k).reshape([8,8])))
                 #zigzag
                 flat_block = np.array(zigzag(q_block))
-
+                
+                # match to dc and ac
                 dc[idx, k] = flat_block[0]
                 ac[idx, :, k] = flat_block[1:]
                 '''
@@ -111,7 +127,6 @@ def convert(file_name, writeValid):
                 ac[idx, :, k] = test_ac[1:]
                 '''
             idx += 1
-
 
     #DPCM for DC
     #Do huffman encode
@@ -128,11 +143,17 @@ def convert(file_name, writeValid):
             out.write(huffmanEncode.encodeDCToBoolList(DPCM[i, k], k), bool)
             #AC wih RLE
             huffmanEncode.encodeACBlock(out, ac[i,:,k], k)
+            
     output[round(len(out) * 10 /(row * col))] += 1
+    
     # show bpp by line
     #print(len(out) /(row * col))
+    
+    # if want to Make output file
     if writeValid:
         writefile(out, file_name, row, col)
+        
+#write file with header 
 def writefile(out, file_name, row, col):
     global Make_size
     jpegFile = open(file_name + '2jpeg.jpeg', 'wb+')
@@ -189,17 +210,22 @@ def writefile(out, file_name, row, col):
     jpegFile.write(bytes([255,217])) # FF D9
     jpegFile.close()
     Make_size.append(os.path.getsize(file_name + '2jpeg.jpeg'))
+    
+ 
 output = [0] * 250
 Pil_size = []
 Make_size =[]
+
 if __name__ == '__main__':
-    writeValid = True
+    writeValid = False
+    
+    # folder with contain images
     files = os.listdir(r'C:\Users\Jin\untitled\testSet')
+    # for each image in folder
     for i, file in enumerate(files):
         convert(r'C:\Users\Jin\untitled\testSet\\' + file, writeValid)
-        if i > 1000:
-            break
 
+    #plot bpp by range
     x = np.arange(250)
     x_bar = [i*0.1 if i % 50 == 0 else '' for i in range(0, 250)]
     plt.bar(x, output)
